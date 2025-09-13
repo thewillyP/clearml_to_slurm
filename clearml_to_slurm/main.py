@@ -5,6 +5,7 @@ import os
 import time
 from clearml import Task, TaskTypes, Dataset
 from clearml.backend_api.session.client import APIClient
+from clearml.backend_api.session import Session
 
 
 def get_running_slurm_jobs():
@@ -30,7 +31,12 @@ def resolve_container(task):
             raise ValueError(f"Invalid container_source/type: {source_type}")
 
 
-def build_singularity_command(task, task_id):
+def build_singularity_command(task, task_id, extra_envs):
+    use_singularity = task.get_parameter("slurm/use_singularity", default=False)
+
+    if not use_singularity:
+        return f"clearml-agent execute --id {task_id}"
+
     container = resolve_container(task)
     gpus = int(task.get_parameter("slurm/gpu", 0))
     use_nv = "--nv" if gpus > 0 else ""
@@ -48,9 +54,6 @@ def build_singularity_command(task, task_id):
 
     bind_arg = f"--bind {','.join(bind_paths)}"
     env_args = (
-        "--env AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID "
-        "--env AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY "
-        "--env AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION "
         "--env CLEARML_TASK_ID=$CLEARML_TASK_ID "
         "--env CLEARML_API_HOST=$CLEARML_API_HOST "
         "--env CLEARML_WEB_HOST=$CLEARML_WEB_HOST "
@@ -58,6 +61,10 @@ def build_singularity_command(task, task_id):
         "--env CLEARML_API_ACCESS_KEY=$CLEARML_API_ACCESS_KEY "
         "--env CLEARML_API_SECRET_KEY=$CLEARML_API_SECRET_KEY"
     )
+
+    # Add extra environment variables
+    for env_key in extra_envs:
+        env_args += f" --env {env_key}=${env_key}"
 
     # Add CUDA_VERSION=12.9 if only CPUs are used
     if gpus == 0:
@@ -79,18 +86,21 @@ def build_singularity_command(task, task_id):
         case "artifact":
             dataset_cache_path = f"$SLURM_TMPDIR/.clearml/cache/storage_manager/datasets/ds_{container['dataset_id']}"
 
+            # Add extra environment variables to fetch command as well
+            extra_env_args = ""
+            for env_key in extra_envs:
+                extra_env_args += f" --env {env_key}=${env_key}"
+
             fetch_cmd = (
                 "singularity exec --containall --cleanenv "
                 "--bind $SLURM_TMPDIR:/tmp "
                 "--bind $SLURM_TMPDIR:$HOME "
-                "--env AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID "
-                "--env AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY "
-                "--env AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION "
                 "--env CLEARML_API_HOST=$CLEARML_API_HOST "
                 "--env CLEARML_WEB_HOST=$CLEARML_WEB_HOST "
                 "--env CLEARML_FILES_HOST=$CLEARML_FILES_HOST "
                 "--env CLEARML_API_ACCESS_KEY=$CLEARML_API_ACCESS_KEY "
                 "--env CLEARML_API_SECRET_KEY=$CLEARML_API_SECRET_KEY "
+                f"{extra_env_args} "
                 "docker://thewillyp/clearml-agent "
                 f"clearml-data get --id {container['dataset_id']}"
             )
@@ -104,9 +114,41 @@ def build_singularity_command(task, task_id):
             raise ValueError(f"Unknown container type: {container['type']}")
 
 
-def create_sbatch_script(task, task_id, singularity_cmd, log_dir):
+def create_sbatch_script(task, task_id, command, log_dir, extra_envs):
+    session = Session()
+    access_key = session.access_key
+    secret_key = session.secret_key
+
+    # Get files host and web host from session config
+    api_host = session.config.get("api.api_server", None)
+    files_host = session.config.get("api.files_server", None)
+    web_host = session.config.get("api.web_server", None)
+
     gpus = int(task.get_parameter("slurm/gpu", 0))
     gpu_directive = f"#SBATCH --gres=gpu:{gpus}" if gpus > 0 else ""
+    use_singularity = task.get_parameter("slurm/use_singularity", default=True)
+
+    # Get setup commands from task parameters
+    setup_commands = task.get_parameter("slurm/setup_commands", default="")
+    setup_section = ""
+    if setup_commands:
+        setup_section = f"\n# Setup commands\n{setup_commands}\n"
+
+    # Export extra environment variables
+    extra_env_exports = ""
+    if extra_envs:
+        extra_env_exports = "\n# Extra environment variables\n"
+        for env_key in extra_envs:
+            env_value = os.environ.get(env_key, "")
+            extra_env_exports += f'export {env_key}="{env_value}"\n'
+
+    ssh_setup = ""
+    if use_singularity:
+        ssh_setup = """# Copy SSH directory to SLURM_TMPDIR
+mkdir -p ${{SLURM_TMPDIR}}/.ssh
+cp -r ${{HOME}}/.ssh/* ${{SLURM_TMPDIR}}/.ssh/
+chmod 700 ${{SLURM_TMPDIR}}/.ssh
+chmod 600 ${{SLURM_TMPDIR}}/.ssh/*"""
 
     return f"""#!/bin/bash
 #SBATCH --job-name=clearml_task
@@ -120,50 +162,29 @@ def create_sbatch_script(task, task_id, singularity_cmd, log_dir):
 {gpu_directive}
 
 export CLEARML_TASK_ID={task_id}
-export AWS_ACCESS_KEY_ID="{os.environ["AWS_ACCESS_KEY_ID"]}"
-export AWS_SECRET_ACCESS_KEY="{os.environ["AWS_SECRET_ACCESS_KEY"]}"
-export AWS_DEFAULT_REGION="{os.environ["AWS_DEFAULT_REGION"]}"
-export CLEARML_API_HOST="{os.environ["CLEARML_API_HOST"]}"
-export CLEARML_WEB_HOST="{os.environ["CLEARML_WEB_HOST"]}"
-export CLEARML_FILES_HOST="{os.environ["CLEARML_FILES_HOST"]}"
-export CLEARML_API_ACCESS_KEY="{os.environ["CLEARML_API_ACCESS_KEY"]}"
-export CLEARML_API_SECRET_KEY="{os.environ["CLEARML_API_SECRET_KEY"]}"
-
-# Copy SSH directory to SLURM_TMPDIR
-mkdir -p ${{SLURM_TMPDIR}}/.ssh
-cp -r ${{HOME}}/.ssh/* ${{SLURM_TMPDIR}}/.ssh/
-chmod 700 ${{SLURM_TMPDIR}}/.ssh
-chmod 600 ${{SLURM_TMPDIR}}/.ssh/*
-
-{singularity_cmd}
+export CLEARML_API_HOST="{api_host}"
+export CLEARML_WEB_HOST="{web_host}"
+export CLEARML_FILES_HOST="{files_host}"
+export CLEARML_API_ACCESS_KEY="{access_key}"
+export CLEARML_API_SECRET_KEY="{secret_key}"
+{extra_env_exports}
+{ssh_setup}
+{setup_section}
+{command}
 """
 
 
-def submit_slurm_job(slurm_host, ssh_username, ssh_private_key, sbatch_script):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-    private_key = load_private_key(ssh_private_key)
-    ssh.connect(hostname=slurm_host, username=ssh_username, pkey=private_key)
-
-    stdin, stdout, stderr = ssh.exec_command("sbatch")
-    stdin.write(sbatch_script)
-    stdin.channel.shutdown_write()
-
-    result = stdout.read().decode()
-    error = stderr.read().decode()
-
-    ssh.close()
-
-    if error:
-        print(f"[ERROR] sbatch stderr: {error}")
-    return result
+def submit_slurm_job(sbatch_script):
+    try:
+        result = subprocess.run(["sbatch"], input=sbatch_script, text=True, capture_output=True, check=True)
+        print(f"[INFO] sbatch stdout: {result.stdout}")
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] sbatch stderr: {e.stderr}")
+        return e.stdout or ""
 
 
-def run(controller_task, queue_name, envs):
-    lazy_poll_interval = float(controller_task.get_parameter("slurm/lazy_poll_interval"))
-    max_jobs = int(controller_task.get_parameter("slurm/max_jobs"))
-
+def run(queue_name, envs, max_jobs, lazy_poll_interval):
     client = APIClient()
 
     # Get queue ID by name
@@ -214,8 +235,8 @@ def run(controller_task, queue_name, envs):
 
                 log_dir = task.get_parameter("slurm/log_dir")
 
-                singularity_cmd = build_singularity_command(task, task_id)
-                sbatch_script = create_sbatch_script(task, task_id, singularity_cmd, log_dir)
+                command = build_singularity_command(task, task_id, envs)
+                sbatch_script = create_sbatch_script(task, task_id, command, log_dir, envs)
 
                 print(f"[INFO] Submitting SLURM job for task {task_id}")
                 submit_slurm_job(sbatch_script)
@@ -231,27 +252,17 @@ def main():
     parser = argparse.ArgumentParser(description="Convert ClearML jobs to SLURM jobs")
     parser.add_argument("--queue", required=True, help="clearml queue name to pull jobs from")
     parser.add_argument("--envs", required=True, help="comma separated list of env vars to pass to the job")
+    parser.add_argument("--max_jobs", required=True, help="maximum number of concurrent SLURM jobs")
+    parser.add_argument("--poll_interval", required=True, help="seconds between polling clearml server for new jobs")
 
     args = parser.parse_args()
 
     queue_name, envs = args.queue, args.envs
     envs = envs.split(",") if envs else []
+    max_jobs = int(args.max_jobs)
+    poll_interval = float(args.poll_interval)
 
-    controller_task = Task.init(
-        project_name="slurm_glue",
-        task_name="SLURM Controller",
-        task_type=TaskTypes.service,
-        reuse_last_task_id=False,
-    )
-
-    # Create parameters dict and connect it to task
-    params = {
-        "max_jobs": 1950,
-        "lazy_poll_interval": 30.0,
-    }
-    params = controller_task.connect(params, name="slurm")
-
-    run(controller_task, queue_name, envs)
+    run(queue_name, envs, max_jobs, poll_interval)
 
 
 if __name__ == "__main__":
