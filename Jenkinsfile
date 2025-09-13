@@ -41,7 +41,7 @@ pipeline {
                                 export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}";
                                 export AWS_DEFAULT_REGION="${params.awsRegion}";
                                 bash -s "${params.runTime}" "${params.runCPUs}" "${params.runMem}" "${params.logDir}" "${params.envs}" "${params.queueName}" "${params.maxJobs}" "${params.pollInterval}"
-                                ' < deploy/run_agent.sh
+                                ' < deploy/clearml_to_slurm.sh
                             """
                         }
                     }
