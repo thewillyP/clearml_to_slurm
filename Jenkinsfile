@@ -2,7 +2,7 @@ properties([
     parameters([
         string(name: 'runTime', defaultValue: '0-06:00:00', description: 'Run job time limit'),
         string(name: 'runCPUs', defaultValue: '2', description: 'CPUs to allocate for run'),
-        string(name: 'runMem', defaultValue: '8G', description: 'Memory to allocate for run'),
+        string(name: 'runMem', defaultValue: '8GB', description: 'Memory to allocate for run'),
         string(name: 'logDir', defaultValue: '/vast/wlp9800/logs', description: 'Log directory path'),
         string(name: 'envs', defaultValue: 'AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_DEFAULT_REGION', description: 'Comma-separated list of environment variables to pass through'),
         string(name: 'queueName', defaultValue: 'willyp', description: 'SLURM queue name'),
