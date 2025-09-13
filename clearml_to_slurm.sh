@@ -1,9 +1,9 @@
 #!/bin/bash
 RUN_TIME=${1:-"0-06:00:00"}  # default to 0 days and 6 hour
 RUN_CPUS=${2:-"2"}
-RUN_MEM={$3:-"4GB"}  
+RUN_MEM=${3:-"4GB"}
 LOG_DIR=$4  # replace with directory where you want to save logs
-ENVS={$5:-""}  # comma-separated list of env vars to be made available in slurm job
+ENVS=${5:-""}  # comma-separated list of env vars to be made available in slurm job
 QUEUE_NAME=$6  # specify your clearml queue
 MAX_JOBS=${7:-1950}  # max number of jobs in parallel before throttling
 POLL_INTERVAL=${8:-30}  # seconds between polling clearml server for new jobs
