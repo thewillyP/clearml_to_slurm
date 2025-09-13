@@ -17,18 +17,17 @@ def get_running_slurm_jobs():
 def resolve_container(task):
     source_type = task.get_parameter("slurm/container_source/type", default="none")
 
-    match source_type:
-        case "docker_url":
-            return {"type": "docker", "docker_url": task.get_parameter("slurm/container_source/docker_url")}
-        case "sif_path":
-            return {"type": "sif", "sif_path": task.get_parameter("slurm/container_source/sif_path")}
-        case "artifact_task":
-            project = task.get_parameter("slurm/container_source/project")
-            dataset_name = task.get_parameter("slurm/container_source/dataset_name")
-            dataset = Dataset.get(dataset_project=project, dataset_name=dataset_name)
-            return {"type": "artifact", "dataset_id": dataset.id}
-        case _:
-            raise ValueError(f"Invalid container_source/type: {source_type}")
+    if source_type == "docker_url":
+        return {"type": "docker", "docker_url": task.get_parameter("slurm/container_source/docker_url")}
+    elif source_type == "sif_path":
+        return {"type": "sif", "sif_path": task.get_parameter("slurm/container_source/sif_path")}
+    elif source_type == "artifact_task":
+        project = task.get_parameter("slurm/container_source/project")
+        dataset_name = task.get_parameter("slurm/container_source/dataset_name")
+        dataset = Dataset.get(dataset_project=project, dataset_name=dataset_name)
+        return {"type": "artifact", "dataset_id": dataset.id}
+    else:
+        raise ValueError(f"Invalid container_source/type: {source_type}")
 
 
 def build_singularity_command(task, task_id, extra_envs):
@@ -72,46 +71,46 @@ def build_singularity_command(task, task_id, extra_envs):
 
     clearml_cmd = f"clearml-agent execute --id {task_id}"
 
-    match container["type"]:
-        case "docker":
-            return (
-                f"singularity exec {use_nv} --containall --cleanenv {overlay_arg} {bind_arg} {env_args} "
-                f"{container['docker_url']} {clearml_cmd}"
-            )
-        case "sif":
-            return (
-                f"singularity exec {use_nv} --containall --cleanenv {overlay_arg} {bind_arg} {env_args} "
-                f"{container['sif_path']} {clearml_cmd}"
-            )
-        case "artifact":
-            dataset_cache_path = f"$SLURM_TMPDIR/.clearml/cache/storage_manager/datasets/ds_{container['dataset_id']}"
+    container_type = container["type"]
+    if container_type == "docker":
+        return (
+            f"singularity exec {use_nv} --containall --cleanenv {overlay_arg} {bind_arg} {env_args} "
+            f"{container['docker_url']} {clearml_cmd}"
+        )
+    elif container_type == "sif":
+        return (
+            f"singularity exec {use_nv} --containall --cleanenv {overlay_arg} {bind_arg} {env_args} "
+            f"{container['sif_path']} {clearml_cmd}"
+        )
+    elif container_type == "artifact":
+        dataset_cache_path = f"$SLURM_TMPDIR/.clearml/cache/storage_manager/datasets/ds_{container['dataset_id']}"
 
-            # Add extra environment variables to fetch command as well
-            extra_env_args = ""
-            for env_key in extra_envs:
-                extra_env_args += f" --env {env_key}=${env_key}"
+        # Add extra environment variables to fetch command as well
+        extra_env_args = ""
+        for env_key in extra_envs:
+            extra_env_args += f" --env {env_key}=${env_key}"
 
-            fetch_cmd = (
-                "singularity exec --containall --cleanenv "
-                "--bind $SLURM_TMPDIR:/tmp "
-                "--bind $SLURM_TMPDIR:$HOME "
-                "--env CLEARML_API_HOST=$CLEARML_API_HOST "
-                "--env CLEARML_WEB_HOST=$CLEARML_WEB_HOST "
-                "--env CLEARML_FILES_HOST=$CLEARML_FILES_HOST "
-                "--env CLEARML_API_ACCESS_KEY=$CLEARML_API_ACCESS_KEY "
-                "--env CLEARML_API_SECRET_KEY=$CLEARML_API_SECRET_KEY "
-                f"{extra_env_args} "
-                "docker://thewillyp/clearml-agent "
-                f"clearml-data get --id {container['dataset_id']}"
-            )
+        fetch_cmd = (
+            "singularity exec --containall --cleanenv "
+            "--bind $SLURM_TMPDIR:/tmp "
+            "--bind $SLURM_TMPDIR:$HOME "
+            "--env CLEARML_API_HOST=$CLEARML_API_HOST "
+            "--env CLEARML_WEB_HOST=$CLEARML_WEB_HOST "
+            "--env CLEARML_FILES_HOST=$CLEARML_FILES_HOST "
+            "--env CLEARML_API_ACCESS_KEY=$CLEARML_API_ACCESS_KEY "
+            "--env CLEARML_API_SECRET_KEY=$CLEARML_API_SECRET_KEY "
+            f"{extra_env_args} "
+            "docker://thewillyp/clearml-agent "
+            f"clearml-data get --id {container['dataset_id']}"
+        )
 
-            run_cmd = (
-                f"singularity exec {use_nv} --containall --cleanenv {overlay_arg} {bind_arg} {env_args} "
-                f"$(find {dataset_cache_path} -name '*.sif' | head -1) {clearml_cmd}"
-            )
-            return f"{fetch_cmd} && {run_cmd}"
-        case _:
-            raise ValueError(f"Unknown container type: {container['type']}")
+        run_cmd = (
+            f"singularity exec {use_nv} --containall --cleanenv {overlay_arg} {bind_arg} {env_args} "
+            f"$(find {dataset_cache_path} -name '*.sif' | head -1) {clearml_cmd}"
+        )
+        return f"{fetch_cmd} && {run_cmd}"
+    else:
+        raise ValueError(f"Unknown container type: {container_type}")
 
 
 def create_sbatch_script(task, task_id, command, log_dir, extra_envs):
