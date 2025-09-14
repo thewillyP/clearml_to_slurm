@@ -144,10 +144,10 @@ def create_sbatch_script(task, task_id, command, log_dir, extra_envs):
     ssh_setup = ""
     if use_singularity:
         ssh_setup = """# Copy SSH directory to SLURM_TMPDIR
-mkdir -p ${{SLURM_TMPDIR}}/.ssh
-cp -r ${{HOME}}/.ssh/* ${{SLURM_TMPDIR}}/.ssh/
-chmod 700 ${{SLURM_TMPDIR}}/.ssh
-chmod 600 ${{SLURM_TMPDIR}}/.ssh/*"""
+mkdir -p ${SLURM_TMPDIR}/.ssh
+cp -r ${HOME}/.ssh/* ${SLURM_TMPDIR}/.ssh/
+chmod 700 ${SLURM_TMPDIR}/.ssh
+chmod 600 ${SLURM_TMPDIR}/.ssh/*"""
 
     return f"""#!/bin/bash
 #SBATCH --job-name=clearml_task
