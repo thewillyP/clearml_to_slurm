@@ -69,6 +69,16 @@ def build_singularity_command(task, task_id, extra_envs):
     if gpus == 0:
         env_args += " --env CUDA_VERSION=12.9"
 
+    # Add CLEARML_OFFLINE_MODE if enabled
+    offline_mode = task.get_parameter("slurm/offline_mode", default=False)
+    if offline_mode:
+        env_args += " --env CLEARML_OFFLINE_MODE=1"
+
+    # Add CLEARML_AGENT_SKIP_PYTHON_ENV_INSTALL if enabled
+    skip_python_env = task.get_parameter("slurm/skip_python_env_install", default=False)
+    if skip_python_env:
+        env_args += " --env CLEARML_AGENT_SKIP_PYTHON_ENV_INSTALL=1"
+
     clearml_cmd = f"clearml-agent execute --id {task_id}"
 
     container_type = container["type"]
@@ -140,6 +150,16 @@ def create_sbatch_script(task, task_id, command, log_dir, extra_envs):
         for env_key in extra_envs:
             env_value = os.environ.get(env_key, "")
             extra_env_exports += f'export {env_key}="{env_value}"\n'
+
+    # Add CLEARML_OFFLINE_MODE if enabled
+    offline_mode = task.get_parameter("slurm/offline_mode", default=False)
+    if offline_mode:
+        extra_env_exports += "export CLEARML_OFFLINE_MODE=1\n"
+
+    # Add CLEARML_AGENT_SKIP_PYTHON_ENV_INSTALL if enabled
+    skip_python_env = task.get_parameter("slurm/skip_python_env_install", default=False)
+    if skip_python_env:
+        extra_env_exports += "export CLEARML_AGENT_SKIP_PYTHON_ENV_INSTALL=1\n"
 
     ssh_setup = ""
     if use_singularity:

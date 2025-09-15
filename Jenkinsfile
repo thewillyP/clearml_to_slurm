@@ -10,8 +10,7 @@ properties([
         string(name: 'pollInterval', defaultValue: '30', description: 'Polling interval in seconds'),
         string(name: 'awsRegion', defaultValue: 'us-east-1', description: 'AWS Region'),
         string(name: 'execHost', defaultValue: 'greene.hpc.nyu.edu', description: 'Execution host for SSH commands'),
-        string(name: 'sshUser', defaultValue: 'wlp9800', description: 'SSH username'),
-        booleanParam(name: 'isOffline', defaultValue: false, description: 'Run in offline mode')
+        string(name: 'sshUser', defaultValue: 'wlp9800', description: 'SSH username')
     ])
 ])
 pipeline {
@@ -36,17 +35,12 @@ pipeline {
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     ]]) {
                         script {
-                            def finalQueueName = params.isOffline ? "${params.queueName}_offline" : params.queueName
-                            def clearmlOfflineMode = params.isOffline ? 1 : 0
-                            def finalEnvs = params.isOffline ? "${params.envs},CLEARML_OFFLINE_MODE" : params.envs
-                            
                             sh """
                                 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${params.sshUser}@${params.execHost} '
                                 export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}";
                                 export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}";
                                 export AWS_DEFAULT_REGION="${params.awsRegion}";
-                                export CLEARML_OFFLINE_MODE=${clearmlOfflineMode};
-                                bash -s "${params.runTime}" "${params.runCPUs}" "${params.runMem}" "${params.logDir}" "${finalEnvs}" "${finalQueueName}" "${params.maxJobs}" "${params.pollInterval}"
+                                bash -s "${params.runTime}" "${params.runCPUs}" "${params.runMem}" "${params.logDir}" "${params.envs}" "${params.queueName}" "${params.maxJobs}" "${params.pollInterval}"
                                 ' < clearml_to_slurm.sh
                             """
                         }
