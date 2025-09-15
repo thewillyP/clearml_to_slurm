@@ -30,8 +30,8 @@ def resolve_container(task):
         raise ValueError(f"Invalid container_source/type: {source_type}")
 
 
-def build_singularity_command(task, task_id, extra_envs):
-    use_singularity = task.get_parameter("slurm/use_singularity", default=False)
+def build_singularity_command(task: Task, task_id, extra_envs):
+    use_singularity = task.get_parameter("slurm/use_singularity", default=False, cast=True)
 
     if not use_singularity:
         return f"clearml-agent execute --id {task_id}"
@@ -70,12 +70,12 @@ def build_singularity_command(task, task_id, extra_envs):
         env_args += " --env CUDA_VERSION=12.9"
 
     # Add CLEARML_OFFLINE_MODE if enabled
-    offline_mode = task.get_parameter("slurm/offline_mode", default=False)
+    offline_mode = task.get_parameter("slurm/offline_mode", default=False, cast=True)
     if offline_mode:
         env_args += " --env CLEARML_OFFLINE_MODE=1"
 
     # Add CLEARML_AGENT_SKIP_PYTHON_ENV_INSTALL if enabled
-    skip_python_env = task.get_parameter("slurm/skip_python_env_install", default=False)
+    skip_python_env = task.get_parameter("slurm/skip_python_env_install", default=False, cast=True)
     if skip_python_env:
         env_args += " --env CLEARML_AGENT_SKIP_PYTHON_ENV_INSTALL=1"
 
@@ -123,7 +123,7 @@ def build_singularity_command(task, task_id, extra_envs):
         raise ValueError(f"Unknown container type: {container_type}")
 
 
-def create_sbatch_script(task, task_id, command, log_dir, extra_envs):
+def create_sbatch_script(task: Task, task_id, command, log_dir, extra_envs):
     session = Session()
     access_key = session.access_key
     secret_key = session.secret_key
@@ -135,7 +135,7 @@ def create_sbatch_script(task, task_id, command, log_dir, extra_envs):
 
     gpus = int(task.get_parameter("slurm/gpu", 0))
     gpu_directive = f"#SBATCH --gres=gpu:{gpus}" if gpus > 0 else ""
-    use_singularity = task.get_parameter("slurm/use_singularity", default=True)
+    use_singularity = task.get_parameter("slurm/use_singularity", default=True, cast=True)
 
     # Get setup commands from task parameters
     setup_commands = task.get_parameter("slurm/setup_commands", default="")
@@ -152,12 +152,12 @@ def create_sbatch_script(task, task_id, command, log_dir, extra_envs):
             extra_env_exports += f'export {env_key}="{env_value}"\n'
 
     # Add CLEARML_OFFLINE_MODE if enabled
-    offline_mode = task.get_parameter("slurm/offline_mode", default=False)
+    offline_mode = task.get_parameter("slurm/offline_mode", default=False, cast=True)
     if offline_mode:
         extra_env_exports += "export CLEARML_OFFLINE_MODE=1\n"
 
     # Add CLEARML_AGENT_SKIP_PYTHON_ENV_INSTALL if enabled
-    skip_python_env = task.get_parameter("slurm/skip_python_env_install", default=False)
+    skip_python_env = task.get_parameter("slurm/skip_python_env_install", default=False, cast=True)
     if skip_python_env:
         extra_env_exports += "export CLEARML_AGENT_SKIP_PYTHON_ENV_INSTALL=1\n"
 
