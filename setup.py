@@ -6,6 +6,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "clearml",
+        "clearml-agent",
     ],
     entry_points={
         "console_scripts": [
