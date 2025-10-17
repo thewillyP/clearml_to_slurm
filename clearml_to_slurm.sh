@@ -26,7 +26,7 @@ module load python/intel/3.8.6
 
 pip install --upgrade git+https://github.com/thewillyP/clearml_to_slurm.git
 
-to_slurm --queue ${QUEUE_NAME} --envs ${ENVS} --max_jobs ${MAX_JOBS} --poll_interval ${POLL_INTERVAL}
+to_slurm --queue ${QUEUE_NAME} --envs "${ENVS}" --max_jobs ${MAX_JOBS} --poll_interval ${POLL_INTERVAL}
 
 EOF
 
