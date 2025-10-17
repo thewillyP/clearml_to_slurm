@@ -260,7 +260,7 @@ def run(queue_name, envs, max_jobs, lazy_poll_interval):
 def main():
     parser = argparse.ArgumentParser(description="Convert ClearML jobs to SLURM jobs")
     parser.add_argument("--queue", required=True, help="clearml queue name to pull jobs from")
-    parser.add_argument("--envs", required=True, help="comma separated list of env vars to pass to the job")
+    parser.add_argument("--envs", required=False, help="comma separated list of env vars to pass to the job")
     parser.add_argument("--max_jobs", required=True, help="maximum number of concurrent SLURM jobs")
     parser.add_argument("--poll_interval", required=True, help="seconds between polling clearml server for new jobs")
 
