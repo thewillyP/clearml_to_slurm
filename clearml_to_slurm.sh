@@ -1,33 +1,34 @@
 #!/bin/bash
-RUN_TIME=${1:-"0-06:00:00"}  # default to 0 days and 6 hour
-RUN_CPUS=${2:-"2"}
-RUN_MEM=${3:-"4GB"}
-LOG_DIR=$4  # replace with directory where you want to save logs
-ENVS=${5:-""}  # comma-separated list of env vars to be made available in slurm job
-QUEUE_NAME=$6  # specify your clearml queue
-MAX_JOBS=${7:-1950}  # max number of jobs in parallel before throttling
-POLL_INTERVAL=${8:-30}  # seconds between polling clearml server for new jobs
+set -euo pipefail
 
-# Submit the SLURM job
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${SCRIPT_DIR}/cluster_config.sh"
+
+LOG_DIR="${1:?Usage: entrypoint.sh LOG_DIR QUEUE_NAME [RUN_TIME] [RUN_CPUS] [RUN_MEM] [MAX_JOBS] [POLL_INTERVAL] [ENVS]}"
+QUEUE_NAME="${2:?}"
+RUN_TIME="${3:-0-06:00:00}"
+RUN_CPUS="${4:-2}"
+RUN_MEM="${5:-4GB}"
+MAX_JOBS="${6:-1950}"
+POLL_INTERVAL="${7:-30}"
+ENVS="${8:-}"
+
 sbatch <<EOF
 #!/bin/bash
-#SBATCH --job-name=clearml_agent
+#SBATCH --job-name=clearml_bridge
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --mem=${RUN_MEM}
 #SBATCH --time=${RUN_TIME}
 #SBATCH --cpus-per-task=${RUN_CPUS}
-#SBATCH --output=${LOG_DIR}/clearml-agent-%j.log
-#SBATCH --error=${LOG_DIR}/clearml-agent-%j.err
+#SBATCH --output=${LOG_DIR}/clearml-bridge-%j.log
+#SBATCH --error=${LOG_DIR}/clearml-bridge-%j.err
 
-# add any module loads here if needed to set up your environment that contains python, pip, clearml
-# delete the next line if not applicable
-module load python/intel/3.8.6
+set -euo pipefail
 
-pip install --upgrade git+https://github.com/thewillyP/clearml_to_slurm.git
+export USE_GPU=0
 
-to_slurm --queue ${QUEUE_NAME} --envs "${ENVS}" --max_jobs ${MAX_JOBS} --poll_interval ${POLL_INTERVAL}
+source "${CONFIG_FILE}"
 
+wrapper bash -c "pip install --quiet git+https://github.com/thewillyP/clearml_to_slurm.git && export PATH=\$HOME/.local/bin:\$PATH && to_slurm --queue '${QUEUE_NAME}' --envs '${ENVS}' --max_jobs ${MAX_JOBS} --poll_interval ${POLL_INTERVAL} --config-file '${CONFIG_FILE}'"
 EOF
-
-
