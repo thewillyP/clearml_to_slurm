@@ -41,12 +41,21 @@ if [[ -d "$HOME/.ssh" ]]; then
     chmod 600 "${SLURM_TMPDIR}/home/.ssh"/* 2>/dev/null || true
 fi
 
-# Auth via AWS Parameter Store (requires AWS creds in env via ENVS parameter)
-export CLEARML_API_ACCESS_KEY=$(aws ssm get-parameter --name /dev/research/clearml_api_access_key --with-decryption --query Parameter.Value --output text)
-export CLEARML_API_SECRET_KEY=$(aws ssm get-parameter --name /dev/research/clearml_api_secret_key --with-decryption --query Parameter.Value --output text)
-export CLEARML_API_HOST=$(aws ssm get-parameter --name /dev/research/clearml_api_host --query Parameter.Value --output text)
-export CLEARML_WEB_HOST=$(aws ssm get-parameter --name /dev/research/clearml_web_host --query Parameter.Value --output text)
-export CLEARML_FILES_HOST=$(aws ssm get-parameter --name /dev/research/clearml_files_host --query Parameter.Value --output text)
+# Auth via AWS Parameter Store (using singularity to run aws cli)
+aws_ssm_get() {
+    singularity run --cleanenv \
+        --env AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+        --env AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+        --env AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}" \
+        docker://amazon/aws-cli \
+        ssm get-parameter --name "$1" --with-decryption --query Parameter.Value --output text
+}
+
+export CLEARML_API_ACCESS_KEY=$(aws_ssm_get /dev/research/clearml_api_access_key)
+export CLEARML_API_SECRET_KEY=$(aws_ssm_get /dev/research/clearml_api_secret_key)
+export CLEARML_API_HOST=$(aws_ssm_get /dev/research/clearml_api_host)
+export CLEARML_WEB_HOST=$(aws_ssm_get /dev/research/clearml_web_host)
+export CLEARML_FILES_HOST=$(aws_ssm_get /dev/research/clearml_files_host)
 
 
 # === WRAPPER ===
