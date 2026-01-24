@@ -37,5 +37,5 @@ export USE_GPU=0
 
 source "${CONFIG_FILE}"
 
-wrapper bash -c "pip install --quiet git+https://github.com/thewillyP/clearml_to_slurm.git && export PATH=\$HOME/.local/bin:\$PATH && to_slurm --queue '${QUEUE_NAME}' --envs '${ENVS}' --max_jobs ${MAX_JOBS} --poll_interval ${POLL_INTERVAL} --config-file '${CONFIG_FILE}' --account '${ACCOUNT}'"
+wrapper bash -c "pip install --quiet git+https://github.com/thewillyP/clearml_to_slurm.git && export PATH=\$HOME/.local/bin:\$PATH && export PYTHONUNBUFFERED=1 && to_slurm --queue '${QUEUE_NAME}' --envs '${ENVS}' --max_jobs ${MAX_JOBS} --poll_interval ${POLL_INTERVAL} --config-file '${CONFIG_FILE}' --account '${ACCOUNT}'"
 EOF
