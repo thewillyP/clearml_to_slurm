@@ -1,6 +1,6 @@
 properties([
     parameters([
-        choice(name: 'cluster', choices: ['greene', 'torch'], description: 'HPC cluster to use'),
+        choice(name: 'cluster', choices: ['torch', 'greene'], description: 'HPC cluster to use'),
         string(name: 'logDir', defaultValue: '/scratch/wlp9800/logs', description: 'Log directory path'),
         string(name: 'configDir', defaultValue: '/scratch/wlp9800/clearml_to_slurm', description: 'Config files directory'),
         string(name: 'queueName', defaultValue: 'willyp', description: 'ClearML queue name'),
