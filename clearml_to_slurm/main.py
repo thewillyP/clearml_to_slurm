@@ -41,12 +41,12 @@ def build_sbatch_script(
     task: Task,
     task_id: str,
     config_file: str,
+    account: str,
     extra_env_keys: list[str],
 ) -> str:
     session = Session()
     gpus = int(task.get_parameter("slurm/gpu", 0))
     skip_python_env = task.get_parameter("slurm/skip_python_env_install", default=False, cast=True)
-    account = task.get_parameter("slurm/account", default="")
 
     extra_envs = {k: os.environ.get(k, "") for k in extra_env_keys}
     if gpus == 0:
@@ -79,6 +79,7 @@ def run(
     max_jobs: int,
     poll_interval: float,
     config_file: str,
+    account: str,
 ):
     client = APIClient()
 
@@ -115,7 +116,7 @@ def run(
                 task_id = response.entry.task
                 task = Task.get_task(task_id=task_id)
 
-                script = build_sbatch_script(task, task_id, config_file, extra_env_keys)
+                script = build_sbatch_script(task, task_id, config_file, account, extra_env_keys)
 
                 print(f"[INFO] Submitting task {task_id}")
                 submit_job(script)
@@ -133,10 +134,11 @@ def main():
     parser.add_argument("--max_jobs", type=int, required=True)
     parser.add_argument("--poll_interval", type=float, required=True)
     parser.add_argument("--config-file", required=True)
+    parser.add_argument("--account", default="")
     args = parser.parse_args()
 
     env_keys = [e.strip() for e in args.envs.split(",") if e.strip()]
-    run(args.queue, env_keys, args.max_jobs, args.poll_interval, args.config_file)
+    run(args.queue, env_keys, args.max_jobs, args.poll_interval, args.config_file, args.account)
 
 
 if __name__ == "__main__":
