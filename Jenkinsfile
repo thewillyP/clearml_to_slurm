@@ -2,6 +2,7 @@ properties([
     parameters([
         choice(name: 'cluster', choices: ['greene', 'torch'], description: 'HPC cluster to use'),
         string(name: 'logDir', defaultValue: '/scratch/wlp9800/logs', description: 'Log directory path'),
+        string(name: 'configDir', defaultValue: '/scratch/wlp9800/clearml_to_slurm', description: 'Config files directory'),
         string(name: 'queueName', defaultValue: 'willyp', description: 'ClearML queue name'),
         string(name: 'account', defaultValue: 'torch_pr_466_general', description: 'Slurm account'),
         string(name: 'runTime', defaultValue: '0-06:00:00', description: 'Run job time limit'),
@@ -35,12 +36,15 @@ pipeline {
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
                     sh """
+                        ssh ${params.cluster} 'mkdir -p ${params.configDir}'
+                        scp cluster_config.sh entrypoint.sh ${params.cluster}:${params.configDir}/
                         ssh ${params.cluster} '
                         export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}";
                         export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}";
                         export AWS_DEFAULT_REGION="${params.awsRegion}";
-                        bash -s "${params.logDir}" "${params.queueName}" "${params.account}" "${params.runTime}" "${params.runCPUs}" "${params.runMem}" "${params.maxJobs}" "${params.pollInterval}" "${params.envs}"
-                        ' < clearml_to_slurm.sh
+                        bash ${params.configDir}/entrypoint.sh "${params.logDir}" "${params.queueName}" "${params.account}" "${params.runTime}" "${params.runCPUs}" "${params.runMem}" "${params.maxJobs}" "${params.pollInterval}" "${params.envs}";
+                        rm -f ${params.configDir}/entrypoint.sh
+                        '
                     """
                 }
             }
