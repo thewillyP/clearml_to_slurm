@@ -37,13 +37,13 @@ pipeline {
                 ]]) {
                     sh """
                         ssh ${params.cluster} 'mkdir -p ${params.configDir}'
-                        scp cluster_config.sh entrypoint.sh ${params.cluster}:${params.configDir}/
+                        scp cluster_config.sh clearml_to_slurm.sh ${params.cluster}:${params.configDir}/
                         ssh ${params.cluster} '
                         export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}";
                         export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}";
                         export AWS_DEFAULT_REGION="${params.awsRegion}";
-                        bash ${params.configDir}/entrypoint.sh "${params.logDir}" "${params.queueName}" "${params.account}" "${params.runTime}" "${params.runCPUs}" "${params.runMem}" "${params.maxJobs}" "${params.pollInterval}" "${params.envs}";
-                        rm -f ${params.configDir}/entrypoint.sh
+                        bash ${params.configDir}/clearml_to_slurm.sh "${params.logDir}" "${params.queueName}" "${params.account}" "${params.runTime}" "${params.runCPUs}" "${params.runMem}" "${params.maxJobs}" "${params.pollInterval}" "${params.envs}";
+                        rm -f ${params.configDir}/clearml_to_slurm.sh
                         '
                     """
                 }
