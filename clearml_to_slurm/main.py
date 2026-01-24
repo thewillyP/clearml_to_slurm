@@ -16,7 +16,7 @@ jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 def ssh_cmd(cmd: list[str], input_text: str | None = None) -> subprocess.CompletedProcess:
     """Run command via SSH to localhost."""
     return subprocess.run(
-        ["ssh", "localhost"] + cmd,
+        ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "localhost"] + cmd,
         input=input_text,
         capture_output=True,
         text=True,
