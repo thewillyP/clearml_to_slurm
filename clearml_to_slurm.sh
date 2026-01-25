@@ -35,10 +35,10 @@ set -euo pipefail
 
 export USE_GPU=0
 export PYTHONUNBUFFERED=1
+export ENVS="${ENVS}"
 
 source "${CONFIG_FILE}"
 
-# Install package in container
 wrapper bash -c "pip install --quiet git+https://github.com/thewillyP/clearml_to_slurm.git"
 
 echo "[INFO] Starting bridge for queue '${QUEUE_NAME}'"

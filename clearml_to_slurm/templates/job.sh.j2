@@ -17,6 +17,7 @@
 set -euo pipefail
 
 export USE_GPU={{ 1 if gpu > 0 else 0 }}
+export ENVS="{{ extra_envs.keys() | join(',') }}"
 
 export CLEARML_TASK_ID="{{ task_id }}"
 export CLEARML_API_HOST="{{ api_host }}"
