@@ -90,14 +90,6 @@ def run_once(
         task_id = response.entry.task
         task = Task.get_task(task_id=task_id)
 
-        # Debug output
-        print(f"[DEBUG] task_id={task_id}", file=sys.stderr)
-        print(f"[DEBUG] memory={task.get_parameter('slurm/memory')}", file=sys.stderr)
-        print(f"[DEBUG] time={task.get_parameter('slurm/time')}", file=sys.stderr)
-        print(f"[DEBUG] cpu={task.get_parameter('slurm/cpu')}", file=sys.stderr)
-        print(f"[DEBUG] gpu={task.get_parameter('slurm/gpu')}", file=sys.stderr)
-        print(f"[DEBUG] log_dir={task.get_parameter('slurm/log_dir')}", file=sys.stderr)
-
         script = build_sbatch_script(task, task_id, config_file, account, extra_env_keys)
         scripts.append({"task_id": task_id, "script": script})
         print(f"[INFO] Prepared task {task_id}", file=sys.stderr)
