@@ -21,10 +21,6 @@ def build_sbatch_script(
     extra_env_keys: list[str],
 ) -> str:
     session = Session()
-
-    print(f"[DEBUG] CLEARML_API_HOST env={os.environ.get('CLEARML_API_HOST')}", file=sys.stderr)
-    print(f"[DEBUG] session api_server={session.config.get('api.api_server')}", file=sys.stderr)
-
     gpus = int(task.get_parameter("slurm/gpu", 0))
     skip_python_env = task.get_parameter("slurm/skip_python_env_install", default=False, cast=True)
 
@@ -43,9 +39,9 @@ def build_sbatch_script(
         gpu=gpus,
         account=account,
         log_dir=task.get_parameter("slurm/log_dir"),
-        api_host=session.config.get("api.api_server"),
-        web_host=session.config.get("api.web_server"),
-        files_host=session.config.get("api.files_server"),
+        api_host=session.get_api_server_host(),
+        web_host=session.get_app_server_host(),
+        files_host=session.get_files_server_host(),
         access_key=session.access_key,
         secret_key=session.secret_key,
         extra_envs=extra_envs,
