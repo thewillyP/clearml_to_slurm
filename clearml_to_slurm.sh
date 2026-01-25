@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/cluster_config.sh"
 
-LOG_DIR="${1:?Usage: entrypoint.sh LOG_DIR QUEUE_NAME [ACCOUNT] [RUN_TIME] [RUN_CPUS] [RUN_MEM] [MAX_JOBS] [POLL_INTERVAL] [ENVS]}"
+LOG_DIR="${1:?Usage: clearml_to_slurm.sh LOG_DIR QUEUE_NAME [ACCOUNT] [RUN_TIME] [RUN_CPUS] [RUN_MEM] [MAX_JOBS] [POLL_INTERVAL] [ENVS]}"
 QUEUE_NAME="${2:?}"
 ACCOUNT="${3:-}"
 RUN_TIME="${4:-0-06:00:00}"
@@ -34,8 +34,35 @@ ${ACCOUNT_DIRECTIVE}
 set -euo pipefail
 
 export USE_GPU=0
+export PYTHONUNBUFFERED=1
 
 source "${CONFIG_FILE}"
 
-wrapper bash -c "pip install --quiet git+https://github.com/thewillyP/clearml_to_slurm.git && export PATH=\$HOME/.local/bin:\$PATH && export PYTHONUNBUFFERED=1 && to_slurm --queue '${QUEUE_NAME}' --envs '${ENVS}' --max_jobs ${MAX_JOBS} --poll_interval ${POLL_INTERVAL} --config-file '${CONFIG_FILE}' --account '${ACCOUNT}'"
+# Install package in container
+wrapper bash -c "pip install --quiet git+https://github.com/thewillyP/clearml_to_slurm.git"
+
+echo "[INFO] Starting bridge for queue '${QUEUE_NAME}'"
+
+while true; do
+    running=\$(squeue --noheader --user "\$USER" 2>/dev/null | wc -l)
+    
+    scripts_json=\$(wrapper bash -c "export PATH=\\\$HOME/.local/bin:\\\$PATH && to_slurm \
+        --queue '${QUEUE_NAME}' \
+        --envs '${ENVS}' \
+        --max_jobs ${MAX_JOBS} \
+        --config-file '${CONFIG_FILE}' \
+        --account '${ACCOUNT}' \
+        --running-jobs \$running" \
+    )
+    
+    echo "\$scripts_json" | jq -c '.[]' 2>/dev/null | while read -r item; do
+        task_id=\$(echo "\$item" | jq -r '.task_id')
+        script=\$(echo "\$item" | jq -r '.script')
+        
+        echo "[INFO] Submitting task \$task_id"
+        echo "\$script" | sbatch
+    done
+    
+    sleep ${POLL_INTERVAL}
+done
 EOF
