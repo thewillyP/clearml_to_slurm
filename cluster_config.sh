@@ -12,7 +12,7 @@
 # === SETUP ===
 
 # Container paths
-SIF_DIR="/scratch/wlp9800/singularity"
+SIF_DIR="/scratch/wlp9800/images"
 SIF_CPU="${SIF_DIR}/devenv-cpu.sif"
 SIF_GPU="${SIF_DIR}/devenv-gpu.sif"
 
