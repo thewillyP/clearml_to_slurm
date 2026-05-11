@@ -10,6 +10,9 @@
 {% if account %}
 #SBATCH --account={{ account }}
 {% endif %}
+{% if comment %}
+#SBATCH --comment="{{ comment }}"
+{% endif %}
 {% if gpu > 0 %}
 #SBATCH --gres=gpu:{{ gpu }}
 {% endif %}

@@ -30,6 +30,8 @@ def build_sbatch_script(
     if skip_python_env:
         extra_envs["CLEARML_AGENT_SKIP_PYTHON_ENV_INSTALL"] = "1"
 
+    comment = task.get_parameter("slurm/comment", default="")
+
     template = jinja_env.get_template("job.sh.j2")
     return template.render(
         task_id=task_id,
@@ -46,6 +48,7 @@ def build_sbatch_script(
         secret_key=session.secret_key,
         extra_envs=extra_envs,
         config_file=config_file,
+        comment=comment,
     )
 
 
